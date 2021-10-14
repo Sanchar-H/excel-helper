@@ -1,4 +1,4 @@
-package per.sanchar.util;
+package per.sanchar.excel.util;
 
 import com.alibaba.fastjson.util.TypeUtils;
 import org.apache.commons.compress.utils.Lists;
@@ -17,10 +17,11 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import per.sanchar.annotation.EnableExcelExport;
-import per.sanchar.annotation.EnableExcelImport;
-import per.sanchar.annotation.SheetColumn;
-import per.sanchar.exception.ExcelHandleException;
+import per.sanchar.excel.annotation.EnableExcelExport;
+import per.sanchar.excel.annotation.EnableExcelImport;
+import per.sanchar.excel.annotation.SheetColumn;
+import per.sanchar.excel.constants.ExcelConstants;
+import per.sanchar.excel.exception.ExcelHandleException;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -35,9 +36,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-
-import static per.sanchar.constants.ExcelConstants.EXCEL_XLS;
-import static per.sanchar.constants.ExcelConstants.SHEET_PREFIX;
 
 /**
  * description: Excel 导入导出工具类
@@ -329,7 +327,7 @@ public abstract class ExcelUtils {
         short[] startColumnIndexes = ArrayUtil.copyNewArr(enableExcelExport.startColumnIndexes(), dataList.size());
 
         // 创建 xls 或者 xlsx 格式多工作簿，默认 xlsx 格式
-        Workbook workbook = EXCEL_XLS.equals(enableExcelExport.fileType()) ? new HSSFWorkbook() : new XSSFWorkbook();
+        Workbook workbook = ExcelConstants.EXCEL_XLS.equals(enableExcelExport.fileType()) ? new HSSFWorkbook() : new XSSFWorkbook();
 
         Iterator<List<T>> iterator = dataList.iterator();
         int i = 0;
@@ -352,7 +350,7 @@ public abstract class ExcelUtils {
                         .collect(Collectors.toList());
                 // 所有属性注解中列索引index最大值
                 int maxIndex = fields.stream().mapToInt(item -> item.getAnnotation(SheetColumn.class).index()).max().getAsInt();
-                st = workbook.createSheet(StringUtils.isEmpty(sheetName) ? SHEET_PREFIX + sheetIndex++ : sheetName);
+                st = workbook.createSheet(StringUtils.isEmpty(sheetName) ? ExcelConstants.SHEET_PREFIX + sheetIndex++ : sheetName);
                 row = null;
                 int currentIndex = maxIndex;
                 if (includeHeader) {

@@ -1,4 +1,4 @@
-package per.sanchar.exception;
+package per.sanchar.excel.exception;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
