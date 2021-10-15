@@ -1,4 +1,4 @@
-package per.sanchar.excel.annotation;
+package cn.sanchar.excel.annotation;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

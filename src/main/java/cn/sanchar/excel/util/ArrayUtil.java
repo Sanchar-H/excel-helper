@@ -1,4 +1,4 @@
-package per.sanchar.excel.util;
+package cn.sanchar.excel.util;
 
 /**
  * description: 数组工具类

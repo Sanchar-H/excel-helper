@@ -1,5 +1,10 @@
-package per.sanchar.excel.util;
+package cn.sanchar.excel.util;
 
+import cn.sanchar.excel.annotation.EnableExcelExport;
+import cn.sanchar.excel.annotation.EnableExcelImport;
+import cn.sanchar.excel.annotation.SheetColumn;
+import cn.sanchar.excel.constants.ExcelConstants;
+import cn.sanchar.excel.exception.ExcelHandleException;
 import com.alibaba.fastjson.util.TypeUtils;
 import org.apache.commons.compress.utils.Lists;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
@@ -17,11 +22,6 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import per.sanchar.excel.annotation.EnableExcelExport;
-import per.sanchar.excel.annotation.EnableExcelImport;
-import per.sanchar.excel.annotation.SheetColumn;
-import per.sanchar.excel.constants.ExcelConstants;
-import per.sanchar.excel.exception.ExcelHandleException;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -264,7 +264,7 @@ public abstract class ExcelUtils {
     }
 
     /**
-     * 将对象集合写入Excel工作簿-单sheet页
+     * 将对象集合写入Excel-单sheet页
      *
      * @param data  对象数据
      * @param clazz pojo类型
@@ -288,7 +288,7 @@ public abstract class ExcelUtils {
     }
 
     /**
-     * 将对象集合写入输出流
+     * 将对象集合列表写入Excel-多sheet页
      *
      * @param dataList     对象数据集合
      * @param clazz        pojo类型
@@ -307,7 +307,7 @@ public abstract class ExcelUtils {
     }
 
     /**
-     * 将对象集合写入Excel工作簿-多sheet页
+     * 将对象集合列表写入Excel工作簿-多sheet页
      *
      * @param dataList 对象数据集合
      * @param clazz    pojo类型
