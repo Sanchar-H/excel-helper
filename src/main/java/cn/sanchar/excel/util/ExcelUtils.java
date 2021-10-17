@@ -13,9 +13,12 @@ import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.DataFormat;
 import org.apache.poi.ss.usermodel.DateUtil;
 import org.apache.poi.ss.usermodel.FillPatternType;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.HorizontalAlignment;
 import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.VerticalAlignment;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.apache.poi.xssf.usermodel.XSSFRichTextString;
@@ -31,6 +34,7 @@ import java.lang.reflect.Field;
 import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.Iterator;
@@ -48,7 +52,7 @@ import java.util.stream.IntStream;
  * lastUpdateBy: shencai.huang@hand-china.com
  * lastUpdateDate: 2021/9/27
  */
-public abstract class ExcelUtils {
+public class ExcelUtils {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ExcelUtils.class);
 
@@ -268,21 +272,23 @@ public abstract class ExcelUtils {
         }
         Object value;
         switch (cell.getCellType()) {
-            case NUMERIC: //数字&日期
+            //数字&日期
+            case NUMERIC:
                 value = DateUtil.isCellDateFormatted(cell) ? cell.getDateCellValue() : cell.getNumericCellValue();
                 break;
-            case STRING: //字符串
+            case STRING:
                 value = cell.getStringCellValue();
                 break;
-            case BOOLEAN: //Boolean
+            case BOOLEAN:
                 value = cell.getBooleanCellValue();
                 break;
-            case FORMULA: //公式
+            //公式
+            case FORMULA:
                 value = cell.getCellFormula();
                 break;
-            case BLANK: //空值
-            case ERROR: //故障
-            case _NONE: //空值
+            case BLANK:
+            case ERROR:
+            case _NONE:
             default:
                 value = null;
                 break;
@@ -296,10 +302,9 @@ public abstract class ExcelUtils {
      * @param data  对象数据
      * @param clazz pojo类型
      * @param <T>   泛型对象
-     * @return 工作簿
      */
     public static <T> void singleListToStream(List<T> data, @NonNull OutputStream outputStream, @NonNull Class<T> clazz) {
-        listToStream(Arrays.asList(data), outputStream, clazz);
+        listToStream(Collections.singletonList(data), outputStream, clazz);
     }
 
     /**
@@ -308,10 +313,10 @@ public abstract class ExcelUtils {
      * @param data  对象数据
      * @param clazz pojo类型
      * @param <T>   泛型对象
-     * @return 工作簿
+     * @return 工作簿 Workbook
      */
     public static <T> Workbook singleListToWorkbook(List<T> data, @NonNull Class<T> clazz) {
-        return listToWorkbook(Arrays.asList(data), clazz);
+        return listToWorkbook(Collections.singletonList(data), clazz);
     }
 
     /**
@@ -323,7 +328,7 @@ public abstract class ExcelUtils {
      * @param <T>          泛型对象
      */
     public static <T> void listToStream(List<List<T>> dataList, @NonNull OutputStream outputStream, @NonNull Class<T> clazz) {
-        Optional.ofNullable(listToWorkbook(dataList, clazz)).ifPresent(workbook -> {
+        Optional.of(listToWorkbook(dataList, clazz)).ifPresent(workbook -> {
             try {
                 workbook.write(outputStream);
             } catch (IOException e) {
@@ -349,6 +354,7 @@ public abstract class ExcelUtils {
 
         // sheet页参数，一个索引对应一个sheet页
         String[] sheetNames = ArrayUtil.copyNewArr(enableExcelExport.sheetNames(), dataList.size());
+        boolean[] isHiddenSheets = ArrayUtil.copyNewArr(enableExcelExport.isHiddenSheets(), dataList.size());
         boolean[] includeHeaders = ArrayUtil.copyNewArr(enableExcelExport.isIncludeHeaders(), dataList.size());
         int[] startRowIndexes = ArrayUtil.copyNewArr(enableExcelExport.startRowIndexes(), dataList.size());
         short[] startColumnIndexes = ArrayUtil.copyNewArr(enableExcelExport.startColumnIndexes(), dataList.size());
@@ -366,6 +372,7 @@ public abstract class ExcelUtils {
         while (iterator.hasNext()) {
             try {
                 String sheetName = sheetNames[i];
+                boolean isHiddenSheet = isHiddenSheets[i];
                 boolean includeHeader = includeHeaders[i];
                 int rowNum = startRowIndexes[i];
                 short startColumn = startColumnIndexes[i];
@@ -378,6 +385,9 @@ public abstract class ExcelUtils {
                 // 所有属性注解中列索引index最大值
                 int maxIndex = fields.stream().mapToInt(item -> item.getAnnotation(SheetColumn.class).index()).max().getAsInt();
                 st = workbook.createSheet(StringUtils.isEmpty(sheetName) ? ExcelConstants.SHEET_PREFIX + sheetIndex++ : sheetName);
+                if (isHiddenSheet) {
+                    workbook.setSheetHidden(i, true);
+                }
                 row = null;
                 int currentIndex = maxIndex;
                 if (includeHeader) {
@@ -396,7 +406,7 @@ public abstract class ExcelUtils {
                         String name = sheetColumn.name();
                         boolean required = sheetColumn.required();
                         cell = row.createCell(index);
-                        fillCell(workbook, cell, name, null, required);
+                        fillHeaderCell(workbook, cell, name, required);
                     }
                     // 列宽为-1为自适应列宽
                     if (width == -1) {
@@ -416,7 +426,7 @@ public abstract class ExcelUtils {
                         cell = row.createCell(index);
                         field.setAccessible(true);
                         Object value = field.get(datum);
-                        fillCell(workbook, cell, value, sheetColumn.format(), false);
+                        fillDataCell(workbook, cell, value, sheetColumn.format());
                     }
                 }
                 i++;
@@ -429,15 +439,14 @@ public abstract class ExcelUtils {
     }
 
     /**
-     * 填充单元格数据
+     * 填充表头数据
      *
      * @param workbook 工作簿
      * @param cell     单元格
      * @param value    填充值
-     * @param format   日期&时间格式
      * @param required 是否必输
      */
-    private static void fillCell(Workbook workbook, Cell cell, Object value, String format, boolean required) {
+    private static void fillHeaderCell(Workbook workbook, Cell cell, Object value, boolean required) {
         CellStyle style = workbook.createCellStyle();
         // 必输列表头填充-浅黄色
         if (required) {
@@ -448,6 +457,43 @@ public abstract class ExcelUtils {
             cell.setCellStyle(style);
             return;
         }
+        // 标题加粗
+        Font font = workbook.createFont();
+        font.setBold(true);
+        style.setFont(font);
+        // 居中
+        style.setAlignment(HorizontalAlignment.CENTER);
+        style.setVerticalAlignment(VerticalAlignment.CENTER);
+        fillCellValue(workbook, cell, style, value, null);
+    }
+
+    /**
+     * 填充单元格数据
+     *
+     * @param workbook 工作簿
+     * @param cell     单元格
+     * @param value    填充值
+     * @param format   日期&时间格式
+     */
+    private static void fillDataCell(Workbook workbook, Cell cell, Object value, String format) {
+        CellStyle style = workbook.createCellStyle();
+        if (Objects.isNull(value)) {
+            cell.setCellStyle(style);
+            return;
+        }
+        fillCellValue(workbook, cell, style, value, format);
+    }
+
+    /**
+     * 填充单元格的值
+     *
+     * @param workbook 工作簿
+     * @param cell     单元格
+     * @param style    单元格样式
+     * @param value    填充值
+     * @param format   日期&时间格式
+     */
+    private static void fillCellValue(Workbook workbook, Cell cell, CellStyle style, Object value, String format) {
         Class<?> clazz = value.getClass();
         if (clazz == String.class) {
             cell.setCellValue((String) value);
@@ -460,7 +506,7 @@ public abstract class ExcelUtils {
         } else if (clazz == Double.class) {
             cell.setCellValue((Double) value);
         } else if (clazz == BigDecimal.class) {
-            cell.setCellValue(Double.valueOf(String.valueOf(value)));
+            cell.setCellValue(Double.parseDouble(String.valueOf(value)));
         } else if (clazz == Boolean.class) {
             cell.setCellValue((Boolean) value);
         } else if (clazz == Date.class) {

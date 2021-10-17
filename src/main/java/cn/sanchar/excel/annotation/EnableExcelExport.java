@@ -25,6 +25,10 @@ public @interface EnableExcelExport {
      */
     String[] sheetNames() default {};
     /**
+     * 是否隐藏Sheet页-列表
+     */
+    boolean[] isHiddenSheets() default {};
+    /**
      * 是否需要表头-列表
      */
     boolean[] isIncludeHeaders() default {};
