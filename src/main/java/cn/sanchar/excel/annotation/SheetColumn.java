@@ -21,6 +21,10 @@ public @interface SheetColumn {
      */
     String name();
     /**
+     * 日期&时间格式
+     */
+    String format() default "yyyy/m/d h:mm:ss";
+    /**
      * 列索引
      */
     int index() default -1;

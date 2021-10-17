@@ -24,7 +24,7 @@ public @interface EnableExcelImport {
     /**
      * sheet 索引-列表
      */
-    int[] sheetAts() default {};
+    int[] sheetIndexes() default {};
 
     /**
      * 开始行-列表
