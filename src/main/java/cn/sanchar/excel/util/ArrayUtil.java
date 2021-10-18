@@ -1,5 +1,7 @@
 package cn.sanchar.excel.util;
 
+import java.util.List;
+
 /**
  * description: 数组工具类
  *
@@ -103,6 +105,7 @@ public class ArrayUtil {
         }
         return newArr;
     }
+
     /**
      * copy 数据到新的数组 - short
      *
@@ -119,5 +122,16 @@ public class ArrayUtil {
             newArr[i] = source[i];
         }
         return newArr;
+    }
+
+    /**
+     * 集合转数组
+     *
+     * @param list 转换的集合
+     * @param <T>  集合对象类型
+     * @return 数组
+     */
+    public static <T> T[] parseArray(List<T> list) {
+        return (T[]) list.toArray();
     }
 }

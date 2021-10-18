@@ -6,7 +6,7 @@
 
     <groupId>cn.sanchar.excel</groupId>
     <artifactId>excel-helper</artifactId>
-    <version>1.0.1-SNAPSHOT</version>
+    <version>1.0.2</version>
     <packaging>jar</packaging>
 
     <name>excel-helper</name>

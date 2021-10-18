@@ -4,13 +4,19 @@ import cn.sanchar.excel.annotation.EnableExcelExport;
 import cn.sanchar.excel.annotation.EnableExcelImport;
 import cn.sanchar.excel.annotation.SheetColumn;
 import cn.sanchar.excel.constants.ExcelConstants;
+import cn.sanchar.excel.entity.ExcelBox;
 import cn.sanchar.excel.exception.ExcelHandleException;
 import com.alibaba.fastjson.util.TypeUtils;
+import com.google.common.collect.Maps;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.compress.utils.Lists;
 import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.apache.poi.ss.usermodel.DataFormat;
+import org.apache.poi.ss.usermodel.DataValidation;
+import org.apache.poi.ss.usermodel.DataValidationConstraint;
+import org.apache.poi.ss.usermodel.DataValidationHelper;
 import org.apache.poi.ss.usermodel.DateUtil;
 import org.apache.poi.ss.usermodel.FillPatternType;
 import org.apache.poi.ss.usermodel.Font;
@@ -21,6 +27,8 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.VerticalAlignment;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.apache.poi.ss.util.CellRangeAddressList;
+import org.apache.poi.xssf.usermodel.XSSFDataValidation;
 import org.apache.poi.xssf.usermodel.XSSFRichTextString;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.checkerframework.checker.nullness.qual.NonNull;
@@ -39,10 +47,19 @@ import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+
+import static cn.sanchar.excel.constants.ExcelConstants.A;
+import static cn.sanchar.excel.constants.ExcelConstants.DEFAULT_ERROR_MESSAGE;
+import static cn.sanchar.excel.constants.ExcelConstants.DEFAULT_ERROR_TITLE;
+import static cn.sanchar.excel.constants.ExcelConstants.DEFAULT_TIPS_MESSAGE;
+import static cn.sanchar.excel.constants.ExcelConstants.DEFAULT_TIPS_TITLE;
+import static cn.sanchar.excel.constants.ExcelConstants.FORMULA_FORMAT;
+import static cn.sanchar.excel.constants.ExcelConstants.HIDDEN_SHEET_NAME;
 
 /**
  * description: Excel 导入导出工具类
@@ -304,7 +321,19 @@ public class ExcelUtils {
      * @param <T>   泛型对象
      */
     public static <T> void singleListToStream(List<T> data, @NonNull OutputStream outputStream, @NonNull Class<T> clazz) {
-        listToStream(Collections.singletonList(data), outputStream, clazz);
+        singleListToStream(data, outputStream, clazz, null);
+    }
+
+    /**
+     * 将对象集合写入OutputStream-单sheet页-带下拉框
+     *
+     * @param data       对象数据
+     * @param clazz      pojo类型
+     * @param excelBoxes 下拉框数据
+     * @param <T>        泛型对象
+     */
+    public static <T> void singleListToStream(List<T> data, @NonNull OutputStream outputStream, @NonNull Class<T> clazz, List<ExcelBox> excelBoxes) {
+        listToStream(Collections.singletonList(data), outputStream, clazz, excelBoxes);
     }
 
     /**
@@ -316,7 +345,20 @@ public class ExcelUtils {
      * @return 工作簿 Workbook
      */
     public static <T> Workbook singleListToWorkbook(List<T> data, @NonNull Class<T> clazz) {
-        return listToWorkbook(Collections.singletonList(data), clazz);
+        return singleListToWorkbook(data, clazz, null);
+    }
+
+    /**
+     * 将对象集合写入Excel工作簿-单sheet页-带下拉框
+     *
+     * @param data       对象数据
+     * @param clazz      pojo类型
+     * @param excelBoxes 下拉框数据
+     * @param <T>        泛型对象
+     * @return 工作簿 Workbook
+     */
+    public static <T> Workbook singleListToWorkbook(List<T> data, @NonNull Class<T> clazz, List<ExcelBox> excelBoxes) {
+        return listToWorkbook(Collections.singletonList(data), clazz, excelBoxes);
     }
 
     /**
@@ -328,7 +370,20 @@ public class ExcelUtils {
      * @param <T>          泛型对象
      */
     public static <T> void listToStream(List<List<T>> dataList, @NonNull OutputStream outputStream, @NonNull Class<T> clazz) {
-        Optional.of(listToWorkbook(dataList, clazz)).ifPresent(workbook -> {
+        listToStream(dataList, outputStream, clazz, null);
+    }
+
+    /**
+     * 将对象集合列表写入OutputStream-多sheet页-带下拉框
+     *
+     * @param dataList     对象数据集合
+     * @param outputStream 输出流
+     * @param clazz        pojo类型
+     * @param excelBoxes   下拉框数据
+     * @param <T>          泛型对象
+     */
+    public static <T> void listToStream(List<List<T>> dataList, @NonNull OutputStream outputStream, @NonNull Class<T> clazz, List<ExcelBox> excelBoxes) {
+        Optional.of(listToWorkbook(dataList, clazz, excelBoxes)).ifPresent(workbook -> {
             try {
                 workbook.write(outputStream);
             } catch (IOException e) {
@@ -347,6 +402,19 @@ public class ExcelUtils {
      * @return 工作簿
      */
     public static <T> Workbook listToWorkbook(List<List<T>> dataList, @NonNull Class<T> clazz) {
+        return listToWorkbook(dataList, clazz, null);
+    }
+
+    /**
+     * 将对象集合列表写入Excel工作簿-多sheet页-带下拉框
+     *
+     * @param dataList   对象数据集合
+     * @param clazz      pojo类型
+     * @param excelBoxes 下拉框数据
+     * @param <T>        泛型对象
+     * @return 工作簿
+     */
+    public static <T> Workbook listToWorkbook(List<List<T>> dataList, @NonNull Class<T> clazz, List<ExcelBox> excelBoxes) {
         EnableExcelExport enableExcelExport = clazz.getAnnotation(EnableExcelExport.class);
         if (Objects.isNull(enableExcelExport)) {
             throw new ExcelHandleException("class type not support excel export.");
@@ -377,7 +445,7 @@ public class ExcelUtils {
                 int rowNum = startRowIndexes[i];
                 short startColumn = startColumnIndexes[i];
                 data = iterator.next();
-                // 实体类的属性
+                // 实体类的可导出字段属性
                 List<Field> fields = Arrays.stream(clazz.getDeclaredFields())
                         .filter(field -> field.isAnnotationPresent(SheetColumn.class)
                                 && field.getAnnotation(SheetColumn.class).exported())
@@ -434,6 +502,12 @@ public class ExcelUtils {
                 LOGGER.error("error.", e);
                 throw new ExcelHandleException("excel write unknown error.");
             }
+        }
+        try {
+            createDropDownList(workbook, excelBoxes);
+        } catch (Exception e) {
+            LOGGER.error("error.", e);
+            throw new ExcelHandleException("error creating drop-down box in excel.");
         }
         return workbook;
     }
@@ -519,5 +593,159 @@ public class ExcelUtils {
             cell.setCellValue((XSSFRichTextString) value);
         }
         cell.setCellStyle(style);
+    }
+
+    /**
+     * 创建下拉列表选项
+     *
+     * @param workbook   工作簿
+     * @param excelBoxes 下拉框数据
+     */
+    private static void createDropDownList(Workbook workbook, List<ExcelBox> excelBoxes) {
+        if (CollectionUtils.isEmpty(excelBoxes)) {
+            return;
+        }
+        // 需要创建的有效数据集超过3个，则以隐藏sheet页方式创建
+        int validSize = excelBoxes.stream()
+                .filter(excelBox -> ArrayUtil.isNotEmpty(excelBox.getValues()))
+                .map(ExcelBox::generateUniqueKey)
+                .collect(Collectors.toSet()).size();
+        if (validSize > 3) {
+            dropDownListWithHiddenSheet(workbook, excelBoxes);
+            return;
+        }
+        // 下拉框数据超过255字节，则以隐藏sheet页方式创建
+        int maxLength = excelBoxes.stream().mapToInt(item
+                -> StringUtils.calStringArrTotalLength(item.getValues())).max().orElse(0);
+        if (maxLength > 256 - 1) {
+            dropDownListWithHiddenSheet(workbook, excelBoxes);
+            return;
+        }
+        dropDownListLessByte(workbook, excelBoxes);
+    }
+
+    /**
+     * 创建下拉列表选项(单元格下拉框数据小于255字节时使用)
+     *
+     * @param workbook   工作簿
+     * @param excelBoxes 下拉框数据列表
+     */
+    private static void dropDownListLessByte(Workbook workbook, List<ExcelBox> excelBoxes) {
+        excelBoxes.stream().filter(excelBox -> ArrayUtil.isNotEmpty(excelBox.getValues()) || StringUtils.isNotEmpty(excelBox.getFormula()))
+                .forEach(excelBox -> createDataValidation(workbook, excelBox));
+    }
+
+    /**
+     * 创建下拉列表选项(单元格下拉框数据大于255字节时使用)
+     *
+     * @param workbook   工作簿
+     * @param excelBoxes 下拉框数据列表
+     */
+    private static void dropDownListWithHiddenSheet(Workbook workbook, List<ExcelBox> excelBoxes) {
+        Map<String, String> formulaMap = Maps.newHashMapWithExpectedSize(excelBoxes.size());
+        // 创建隐藏sheet页存储下拉框的数据
+        Sheet sheet = workbook.createSheet(HIDDEN_SHEET_NAME);
+        workbook.setSheetHidden(workbook.getSheetIndex(sheet), true);
+        Row row;
+        Cell cell;
+        int rowIndex;
+        int colIndex = 0;
+        for (ExcelBox excelBox : excelBoxes) {
+            String formula = excelBox.getFormula();
+            // 已指定取值表达式，则无需再创建数据集
+            if (StringUtils.isNotEmpty(formula)) {
+                createDataValidation(workbook, excelBox);
+                continue;
+            }
+            String[] values = excelBox.getValues();
+            if (ArrayUtil.isEmpty(values)) {
+                continue;
+            }
+            // 存在相同的数据集则无需再重新创建
+            formula = formulaMap.get(excelBox.generateUniqueKey());
+            if (StringUtils.isNotEmpty(formula)) {
+                createDataValidation(workbook, excelBox.formula(formula));
+                continue;
+            }
+            rowIndex = 0;
+            // 下拉框数据集表头
+            String boxName = Optional.ofNullable(excelBox.getBoxName()).orElse("");
+            row = getRow(sheet, rowIndex++);
+            cell = getCell(row, colIndex);
+            fillHeaderCell(workbook, cell, boxName, false);
+            // 下拉框数据集内容
+            for (String value : values) {
+                row = getRow(sheet, rowIndex++);
+                cell = getCell(row, colIndex);
+                cell.setCellValue(value);
+            }
+            // A1是数据集表头，故取之范围从A2开始，即A2～An、B2～Bn...
+            String colName = String.valueOf((char) (A + colIndex++));
+            formula = String.format(FORMULA_FORMAT, HIDDEN_SHEET_NAME, colName, colName, values.length + 1);
+            formulaMap.put(excelBox.generateUniqueKey(), formula);
+            createDataValidation(workbook, excelBox.formula(formula));
+        }
+    }
+
+    public static Row getRow(Sheet sheet, int rowIndex) {
+        return Optional.ofNullable(sheet.getRow(rowIndex)).orElseGet(() -> sheet.createRow(rowIndex));
+    }
+
+    public static Cell getCell(Row row, int colIndex) {
+        return Optional.ofNullable(row.getCell(colIndex)).orElseGet(() -> row.createCell(colIndex));
+    }
+
+    /**
+     * 创建下拉列表选项
+     *
+     * @param workbook 工作簿
+     * @param excelBox 下拉框数据
+     */
+    private static void createDataValidation(Workbook workbook, ExcelBox excelBox) {
+        Sheet sheet = null;
+        String sheetName = excelBox.getSheetName();
+        // sheet页名不为空，则以sheet页名匹配sheet
+        if (StringUtils.isNotEmpty(sheetName)) {
+            sheet = Optional.ofNullable(workbook.getSheet(sheetName)).orElseThrow(()
+                    -> new ExcelHandleException(String.format("sheetName [%s] can not be matched a available sheet.", sheetName)));
+        }
+        // sheet页名为空，则根据sheet索引匹配sheet，默认索引:0
+        if (Objects.isNull(sheet)) {
+            int sheetIndex = excelBox.getSheetIndex();
+            if (sheetIndex > workbook.getNumberOfSheets() - 1) {
+                throw new ExcelHandleException(String.format("sheetIndex [%d] is out of range[0, %d).", sheetIndex, workbook.getNumberOfSheets()));
+            }
+            sheet = workbook.getSheetAt(sheetIndex);
+        }
+        // 起始终止行和列
+        int firstRow = excelBox.getFirstRow();
+        int lastRow = Optional.ofNullable(excelBox.getLastRow()).orElse(65536);
+        int firstCol = excelBox.getFirstCol();
+        int lastCol = Optional.ofNullable(excelBox.getLastCol()).orElse(firstCol);
+        // 提示消息
+        Boolean isShowTips = Optional.ofNullable(excelBox.getShowTips()).orElse(false);
+        String tipsTitle = Optional.ofNullable(excelBox.getTipsTitle()).orElse(DEFAULT_TIPS_TITLE);
+        String tipsMessage = Optional.ofNullable(excelBox.getTipsMessage()).orElse(DEFAULT_TIPS_MESSAGE);
+        String errorTitle = Optional.ofNullable(excelBox.getErrorTitle()).orElse(DEFAULT_ERROR_TITLE);
+        String errorMessage = Optional.ofNullable(excelBox.getErrorMessage()).orElse(DEFAULT_ERROR_MESSAGE);
+        // 下拉框取值表达式
+        String formula = excelBox.getFormula();
+        // 开始创建下拉框列表
+        DataValidationHelper helper = sheet.getDataValidationHelper();
+        CellRangeAddressList addressList = new CellRangeAddressList(firstRow, lastRow, firstCol, lastCol);
+        DataValidationConstraint constraint = StringUtils.isEmpty(formula) ? helper.createExplicitListConstraint(excelBox.getValues()) : helper.createFormulaListConstraint(formula);
+        DataValidation validation = helper.createValidation(constraint, addressList);
+        // 处理兼容性问题
+        if (validation instanceof XSSFDataValidation) {
+            validation.setSuppressDropDownArrow(true);
+            validation.setShowErrorBox(true);
+            validation.createErrorBox(errorTitle, errorMessage);
+        } else {
+            validation.setSuppressDropDownArrow(false);
+        }
+        validation.setEmptyCellAllowed(true);
+        validation.setShowPromptBox(isShowTips);
+        validation.createPromptBox(tipsTitle, tipsMessage);
+        sheet.addValidationData(validation);
     }
 }
