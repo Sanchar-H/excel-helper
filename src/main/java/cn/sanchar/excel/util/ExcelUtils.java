@@ -687,11 +687,11 @@ public class ExcelUtils {
         }
     }
 
-    public static Row getRow(Sheet sheet, int rowIndex) {
+    private static Row getRow(Sheet sheet, int rowIndex) {
         return Optional.ofNullable(sheet.getRow(rowIndex)).orElseGet(() -> sheet.createRow(rowIndex));
     }
 
-    public static Cell getCell(Row row, int colIndex) {
+    private static Cell getCell(Row row, int colIndex) {
         return Optional.ofNullable(row.getCell(colIndex)).orElseGet(() -> row.createCell(colIndex));
     }
 
